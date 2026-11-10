@@ -1,0 +1,7 @@
+{"info":{"name":"ecommerce","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+"item":[
+{"name":"Health gateway","request":{"method":"GET","url":"http://localhost:8080/actuator/health"}},
+{"name":"Crear producto","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"nombre\":\"Mouse\",\"precio\":25.5}"},"url":"http://localhost:8080/api/productos"}},
+{"name":"Listar productos","request":{"method":"GET","url":"http://localhost:8080/api/productos"}},
+{"name":"Crear pedido","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"productoId\":1,\"cantidad\":2}"},"url":"http://localhost:8080/api/pedidos"}},
+{"name":"Listar pedidos","request":{"method":"GET","url":"http://localhost:8080/api/pedidos"}}]}

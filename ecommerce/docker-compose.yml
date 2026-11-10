@@ -1,0 +1,116 @@
+x-spring-env: &spring-env
+  CONFIG_SERVER_URL: http://config-server:8888
+  EUREKA_URL: http://eureka-server:8761/eureka/
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+
+services:
+  postgres-productos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: productos
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg-productos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      retries: 5
+  postgres-pedidos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pedidos
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg-pedidos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      retries: 5
+  config-server:
+    build: ./config-server
+    image: ecommerce/config-server:1.0
+    restart: on-failure
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      retries: 10
+  eureka-server:
+    build: ./eureka-server
+    image: ecommerce/eureka-server:1.0
+    restart: on-failure
+    ports: ["8761:8761"]
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      retries: 10
+  producto-service:
+    build: ./producto-service
+    image: ecommerce/producto-service:1.0
+    restart: on-failure
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+    environment:
+      <<: *spring-env
+      DB_URL: jdbc:postgresql://postgres-productos:5432/productos
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres-productos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      retries: 10
+  pedido-service:
+    build: ./pedido-service
+    image: ecommerce/pedido-service:1.0
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    environment:
+      <<: *spring-env
+      DB_URL: jdbc:postgresql://postgres-pedidos:5432/pedidos
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres-pedidos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      retries: 10
+  api-gateway:
+    build: ./api-gateway
+    image: ecommerce/api-gateway:1.0
+    restart: on-failure
+    ports: ["8080:8080"]
+    environment: *spring-env
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      retries: 10
+volumes:
+  pg-productos:
+  pg-pedidos:
